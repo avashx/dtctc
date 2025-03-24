@@ -1,131 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realtime location tracker</title>
+
+    <!-- leaflet css  -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+</body>
+</html>
+
+<!-- leaflet js  -->
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 <script>
-        function createAreaTooltip(layer) {
-            if(layer.areaTooltip) {
-                return;
-            }
+    // Map initialization 
+    var map = L.map('map').setView([14.0860746, 100.608406], 6);
 
-            layer.areaTooltip = L.tooltip({
-                permanent: true,
-                direction: 'center',
-                className: 'area-tooltip'
-            });
+    //osm layer
+    var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    });
+    osm.addTo(map);
 
-            layer.on('remove', function(event) {
-                layer.areaTooltip.remove();
-            });
+    if(!navigator.geolocation) {
+        console.log("Your browser doesn't support geolocation feature!")
+    } else {
+        setInterval(() => {
+            navigator.geolocation.getCurrentPosition(getPosition)
+        }, 5000);
+    }
 
-            layer.on('add', function(event) {
-                updateAreaTooltip(layer);
-                layer.areaTooltip.addTo(map);
-            });
+    var marker, circle;
 
-            if(map.hasLayer(layer)) {
-                updateAreaTooltip(layer);
-                layer.areaTooltip.addTo(map);
-            }
+    function getPosition(position){
+        // console.log(position)
+        var lat = position.coords.latitude
+        var long = position.coords.longitude
+        var accuracy = position.coords.accuracy
+
+        if(marker) {
+            map.removeLayer(marker)
         }
 
-        function updateAreaTooltip(layer) {
-            var area = L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]);
-            var readableArea = L.GeometryUtil.readableArea(area, true);
-            var latlng = layer.getCenter();
-
-            layer.areaTooltip
-                .setContent(readableArea)
-                .setLatLng(latlng);
-
-            // Update the area in the <p> element
-            document.getElementById('area-display').textContent = readableArea;
-                      // Calculate and update fertilizer and drone refills
-            updateFertilizerAndRefills(area);
- }
-  function updateFertilizerAndRefills(area) {
-            var cropType = document.getElementById('crop-type');
-            var fertilizerRate = parseFloat(cropType.selectedOptions[0].getAttribute('data-fertilizer'));
-
-            // Convert area to hectares (1 ha = 10,000 m²)
-            var areaInHectares = area / 10000;
-
-            // Calculate fertilizer required
-            var fertilizerRequired = areaInHectares * fertilizerRate;
-            document.getElementById('fertilizer-required').textContent = fertilizerRequired.toFixed(2) + ' L';
-
-            // Get drone capacity from dropdown
-            var droneCapacity = parseInt(document.getElementById('drone-capacity').value);
-
-            // Calculate drone refills
-            var droneRefills = Math.ceil(fertilizerRequired / droneCapacity);
-            document.getElementById('drone-refills').textContent = droneRefills;
-
-            // Estimate drone flight time dynamically (7 minutes per refill + 3 minutes setup time per refill)
-            var flightTime = (droneRefills * 7) + (droneRefills * 3);
-            document.getElementById('flight-time').textContent = flightTime + ' min';
+        if(circle) {
+            map.removeLayer(circle)
         }
-        var map = L.map('map').setView([28.592376, 77.349851], 16);
 
-        L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="http://openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
+        marker = L.marker([lat, long])
+        circle = L.circle([lat, long], {radius: accuracy})
 
-        var polygon = L.polygon([
-            [28.591708, 77.348892],
-            [28.592177, 77.348424],
-            [28.592856, 77.349386],
-            [28.592376, 77.349851],
-        ]).addTo(map);
+        var featureGroup = L.featureGroup([marker, circle]).addTo(map)
 
-        createAreaTooltip(polygon);
+        map.fitBounds(featureGroup.getBounds())
 
-        /**
-         * EXAMPLE WITH LEAFLET DRAW CONTROL
-         */
-        var drawnItems = L.featureGroup().addTo(map);
+        console.log("Your coordinate is: Lat: "+ lat +" Long: "+ long+ " Accuracy: "+ accuracy)
+    }
 
-        map.addControl(new L.Control.Draw({
-            edit: {
-                featureGroup: drawnItems,
-                poly: {
-                    allowIntersection: false
-                }
-            },
-            draw: {
-                marker: false,
-                circle: false,
-                circlemarker: false,
-                rectangle: false,
-                polyline: false,
-                polygon: {
-                    allowIntersection: false,
-                    showArea: true
-                }
-            }
-        }));
-
-        map.on(L.Draw.Event.CREATED, function(event) {
-            var layer = event.layer;
-
-            if(layer instanceof L.Polygon) {
-                createAreaTooltip(layer);
-            }
-
-            drawnItems.addLayer(layer);
-        });
-
-        map.on(L.Draw.Event.EDITED, function(event) {
-            event.layers.getLayers().forEach(function(layer) {
-                if(layer instanceof L.Polygon) {
-                    updateAreaTooltip(layer);
-                }
-            });
-        });
- // Update calculations when crop type or drone capacity changes
-        document.getElementById('crop-type').addEventListener('change', function() {
-            var area = L.GeometryUtil.geodesicArea(polygon.getLatLngs()[0]);
-            updateFertilizerAndRefills(area);
-        });
-
-        document.getElementById('drone-capacity').addEventListener('change', function() {
-            var area = L.GeometryUtil.geodesicArea(polygon.getLatLngs()[0]);
-            updateFertilizerAndRefills(area);
-        });
-    </script>
+</script>
