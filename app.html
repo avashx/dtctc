@@ -490,7 +490,7 @@ display: var(--rec);
     } else {
         setInterval(() => {
             navigator.geolocation.getCurrentPosition(getPosition)
-        }, 5000);
+        }, 10000);
     }
 
     var marker, circle;
@@ -518,5 +518,17 @@ display: var(--rec);
 
         console.log("Your coordinate is: Lat: "+ lat +" Long: "+ long+ " Accuracy: "+ accuracy)
     }
+
+
+    var markers = [
+  ["7C6B07", -40.99497, 174.50808],
+  ["7C6B38", -41.30269, 173.63696],
+  ["C820B6", -41.51285, 173.53274],
+];
+for (var i = 0; i < markers.length; i++) {
+  marker = new L.marker([markers[i][1], markers[i][2]])
+    .bindPopup(markers[i][0])
+    .addTo(map);
+}
 
 </script>
